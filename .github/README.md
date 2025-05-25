@@ -163,12 +163,27 @@ const documents3_4_5_6 = firestore.query("FirstCollection").Range(3, 7).Execute(
 ```
 
 #### Support for multiple databases in one GCP project
-By default, GCP crates only one "(default)" database; however, it is possible to have multiple databases under different names in one GCP project.
-You can access a non-default database using its name while initializing the library.
+Firestore can support multiple databases within a single Google Cloud Project. Each project has a default database with the ID `(default)`. You can also create and use other named databases.
 
+To initialize the library for a specific database, you provide the database name as the fifth argument to the `FirestoreApp.getFirestore` function.
+
+**Using the default database:**
+If you omit the database name (and the preceding `apiVersion`), it will connect to the `(default)` database:
 ```javascript
-const firestore = FirestoreApp.getFirestore(email, key, projected, "v1", yourDatabaseName);
+const firestore = FirestoreApp.getFirestore(email, key, projectId);
 ```
+You can also explicitly specify the default database:
+```javascript
+const firestoreDefault = FirestoreApp.getFirestore(email, key, projectId, 'v1', '(default)');
+```
+
+**Using a non-default database:**
+To connect to a different database (e.g., one named "my-custom-db"), provide its name:
+```javascript
+const customDbName = "my-custom-db";
+const firestoreCustom = FirestoreApp.getFirestore(email, key, projectId, 'v1', customDbName);
+```
+Note: The `apiVersion` (the fourth argument, defaulting to 'v1') must be provided if you intend to specify a custom `databaseName` (the fifth argument).
 
 See other library methods and details [in the wiki](../../../wiki).
 
@@ -198,4 +213,4 @@ After cloning this repository, you can push it to your own private copy of this 
 Install all packages from `package.json` with a bare `npm install`.
  
 
-If you want to view the source code directly on Google Apps Script, where you can make a copy for yourself to edit, click [here](//script.google.com/d/1VUSl4b1r1eoNcRWotZM3e87ygkxvXltOgyDZhixqncz9lQ3MjfT1iKFw/edit). 
+If you want to view the source code directly on Google Apps Script, where you can make a copy for yourself to edit, click [here](//script.google.com/d/1VUSl4b1r1eoNcRWotZM3e87ygkxvXltOgyDZhixqncz9lQ3MjfT1iKFw/edit).
