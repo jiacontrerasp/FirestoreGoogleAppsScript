@@ -16,7 +16,14 @@ class Tests implements TestManager {
   fail: Map<string, Error>;
   expected_!: Record<string, Value>;
 
-  constructor(email: string, key: string, projectId: string, apiVersion: Version = 'v1', clearCollection = false) {
+  constructor(
+    email: string,
+    key: string,
+    projectId: string,
+    apiVersion: Version = 'v1',
+    databaseName: string = '(default)',
+    clearCollection = false
+  ) {
     this.pass = [];
     this.fail = new Map<string, Error>();
 
@@ -26,15 +33,15 @@ class Tests implements TestManager {
 
     /** Test Initializer */
     try {
-      this.db = getFirestore(email, key, projectId, apiVersion);
-      this.pass.push('Test_Get_Firestore');
+      this.db = getFirestore(email, key, projectId, apiVersion, databaseName);
+      this.pass.push(`Test_Get_Firestore (${databaseName})`);
     } catch (e) {
       // On failure, fail the remaining tests without execution
-      this.fail.set('Test_Get_Firestore', <Error>e);
+      this.fail.set(`Test_Get_Firestore (${databaseName})`, <Error>e);
       const err = new Error('Test Initialization Error');
-      err.stack = 'See Test_Get_Firestore Error';
+      err.stack = `See Test_Get_Firestore (${databaseName}) Error`;
       for (const func of funcs) {
-        this.fail.set(func, err);
+        this.fail.set(`${func} (${databaseName})`, err);
       }
       return;
     }
@@ -65,7 +72,7 @@ class Tests implements TestManager {
     for (const func of funcs) {
       try {
         (this as any)[func]();
-        this.pass.push(func);
+        this.pass.push(`${func} (${databaseName})`);
       } catch (e) {
         if (typeof e === 'string') {
           const err = new Error('AssertionError');
@@ -73,7 +80,7 @@ class Tests implements TestManager {
           // eslint-disable-next-line no-ex-assign
           e = err;
         }
-        this.fail.set(func, <Error>e);
+        this.fail.set(`${func} (${databaseName})`, <Error>e);
       }
     }
   }
@@ -505,17 +512,32 @@ class Tests implements TestManager {
 
 function RunTests_(cacheSeconds: number): Shield {
   const scriptProps = PropertiesService.getUserProperties().getProperties();
-  const tests = new Tests(scriptProps['email'], scriptProps['key'], scriptProps['project'], 'v1');
-  const { pass, fail } = tests;
-  for (const [func, err] of fail) {
+  const email = scriptProps['email'];
+  const key = scriptProps['key'];
+  const projectId = scriptProps['project'];
+
+  let totalPass: string[] = [];
+  let totalFail = new Map<string, Error>();
+
+  // Test default database
+  const testsDefault = new Tests(email, key, projectId, 'v1', '(default)');
+  totalPass = totalPass.concat(testsDefault.pass);
+  testsDefault.fail.forEach((value, key) => totalFail.set(key, value));
+
+  // Test 'test-db' database
+  const testsNonDefault = new Tests(email, key, projectId, 'v1', 'test-db');
+  totalPass = totalPass.concat(testsNonDefault.pass);
+  testsNonDefault.fail.forEach((value, key) => totalFail.set(key, value));
+
+  for (const [func, err] of totalFail) {
     console.log(`Test Failed: ${func} (${err.message})\n${err.stack}`);
   }
-  console.log(`Completed ${pass.length + fail.size} Tests.`);
+  console.log(`Completed ${totalPass.length + totalFail.size} Tests.`);
   return {
     schemaVersion: 1,
     label: 'tests',
-    message: `✔ ${pass.length}, ✘ ${Object.keys(fail).length}`,
-    color: Object.keys(fail).length ? 'red' : 'green',
+    message: `✔ ${totalPass.length}, ✘ ${totalFail.size}`,
+    color: totalFail.size ? 'red' : 'green',
     cacheSeconds: cacheSeconds, // Always cache for 1 hour
   };
 }
@@ -537,7 +559,15 @@ function cacheResults_(cachedBadge: boolean): string {
 function clearCache(): void {
   /** Allow user to clear Cached Results **/
   const scriptProps = PropertiesService.getUserProperties().getProperties();
-  new Tests(scriptProps['email'], scriptProps['key'], scriptProps['project'], 'v1', true);
+  const email = scriptProps['email'];
+  const key = scriptProps['key'];
+  const projectId = scriptProps['project'];
+
+  // Clear default database
+  new Tests(email, key, projectId, 'v1', '(default)', true);
+  // Clear 'test-db' database
+  new Tests(email, key, projectId, 'v1', 'test-db', true);
+
   CacheService.getUserCache()!.remove('Test Results');
 }
 
